@@ -439,14 +439,17 @@ struct svcctl_ChangeServiceConfigW {
 		enum svcctl_ErrorControl error_control;
 		const char *binary_path;/* [unique,charset(UTF16)] */
 		const char *load_order_group;/* [unique,charset(UTF16)] */
-		const char *dependencies;/* [unique,charset(UTF16)] */
+		uint8_t *dependencies;/* [unique,size_is(dependencies_size)] */
+		uint32_t dependencies_size;
 		const char *service_start_name;/* [unique,charset(UTF16)] */
-		const char *password;/* [unique,charset(UTF16)] */
+		uint8_t *password;/* [unique,size_is(password_size)] */
+		uint32_t password_size;
 		const char *display_name;/* [unique,charset(UTF16)] */
+		uint32_t *tag_id;/* [unique] */
 	} in;
 
 	struct {
-		uint32_t *tag_id;/* [ref] */
+		uint32_t *tag_id;/* [unique] */
 		WERROR result;
 	} out;
 

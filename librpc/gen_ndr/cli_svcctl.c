@@ -1648,10 +1648,12 @@ struct tevent_req *rpccli_svcctl_ChangeServiceConfigW_send(TALLOC_CTX *mem_ctx,
 							   enum svcctl_ErrorControl _error_control /* [in]  */,
 							   const char *_binary_path /* [in] [unique,charset(UTF16)] */,
 							   const char *_load_order_group /* [in] [unique,charset(UTF16)] */,
-							   uint32_t *_tag_id /* [out] [ref] */,
-							   const char *_dependencies /* [in] [unique,charset(UTF16)] */,
+							   uint32_t *_tag_id /* [in,out] [unique] */,
+							   uint8_t *_dependencies /* [in] [unique,size_is(dependencies_size)] */,
+							   uint32_t _dependencies_size /* [in]  */,
 							   const char *_service_start_name /* [in] [unique,charset(UTF16)] */,
-							   const char *_password /* [in] [unique,charset(UTF16)] */,
+							   uint8_t *_password /* [in] [unique,size_is(password_size)] */,
+							   uint32_t _password_size /* [in]  */,
 							   const char *_display_name /* [in] [unique,charset(UTF16)] */)
 {
 	struct tevent_req *req;
@@ -1673,9 +1675,12 @@ struct tevent_req *rpccli_svcctl_ChangeServiceConfigW_send(TALLOC_CTX *mem_ctx,
 	state->orig.in.error_control = _error_control;
 	state->orig.in.binary_path = _binary_path;
 	state->orig.in.load_order_group = _load_order_group;
+	state->orig.in.tag_id = _tag_id;
 	state->orig.in.dependencies = _dependencies;
+	state->orig.in.dependencies_size = _dependencies_size;
 	state->orig.in.service_start_name = _service_start_name;
 	state->orig.in.password = _password;
+	state->orig.in.password_size = _password_size;
 	state->orig.in.display_name = _display_name;
 
 	/* Out parameters */
@@ -1727,7 +1732,9 @@ static void rpccli_svcctl_ChangeServiceConfigW_done(struct tevent_req *subreq)
 	}
 
 	/* Copy out parameters */
-	*state->orig.out.tag_id = *state->tmp.out.tag_id;
+	if (state->orig.out.tag_id && state->tmp.out.tag_id) {
+		*state->orig.out.tag_id = *state->tmp.out.tag_id;
+	}
 
 	/* Copy result */
 	state->orig.out.result = state->tmp.out.result;
@@ -1769,10 +1776,12 @@ NTSTATUS rpccli_svcctl_ChangeServiceConfigW(struct rpc_pipe_client *cli,
 					    enum svcctl_ErrorControl error_control /* [in]  */,
 					    const char *binary_path /* [in] [unique,charset(UTF16)] */,
 					    const char *load_order_group /* [in] [unique,charset(UTF16)] */,
-					    uint32_t *tag_id /* [out] [ref] */,
-					    const char *dependencies /* [in] [unique,charset(UTF16)] */,
+					    uint32_t *tag_id /* [in,out] [unique] */,
+					    uint8_t *dependencies /* [in] [unique,size_is(dependencies_size)] */,
+					    uint32_t dependencies_size /* [in]  */,
 					    const char *service_start_name /* [in] [unique,charset(UTF16)] */,
-					    const char *password /* [in] [unique,charset(UTF16)] */,
+					    uint8_t *password /* [in] [unique,size_is(password_size)] */,
+					    uint32_t password_size /* [in]  */,
 					    const char *display_name /* [in] [unique,charset(UTF16)] */,
 					    WERROR *werror)
 {
@@ -1786,9 +1795,12 @@ NTSTATUS rpccli_svcctl_ChangeServiceConfigW(struct rpc_pipe_client *cli,
 	r.in.error_control = error_control;
 	r.in.binary_path = binary_path;
 	r.in.load_order_group = load_order_group;
+	r.in.tag_id = tag_id;
 	r.in.dependencies = dependencies;
+	r.in.dependencies_size = dependencies_size;
 	r.in.service_start_name = service_start_name;
 	r.in.password = password;
+	r.in.password_size = password_size;
 	r.in.display_name = display_name;
 
 	status = cli->dispatch(cli,
@@ -1806,7 +1818,9 @@ NTSTATUS rpccli_svcctl_ChangeServiceConfigW(struct rpc_pipe_client *cli,
 	}
 
 	/* Return variables */
-	*tag_id = *r.out.tag_id;
+	if (tag_id && r.out.tag_id) {
+		*tag_id = *r.out.tag_id;
+	}
 
 	/* Return result */
 	if (werror) {

@@ -228,10 +228,12 @@ import "misc.idl", "security.idl";
 		[in] svcctl_ErrorControl error_control,
 		[in,unique] [string,charset(UTF16)] uint16 *binary_path,
 		[in,unique] [string,charset(UTF16)] uint16 *load_order_group,
-		[out,ref] uint32 *tag_id,
-		[in,unique] [string,charset(UTF16)] uint16 *dependencies,
+		[in,out,unique] uint32 *tag_id,
+		[in,unique,size_is(dependencies_size)] uint8 *dependencies,
+		[in] uint32 dependencies_size,
 		[in,unique] [string,charset(UTF16)] uint16 *service_start_name,
-		[in,unique] [string,charset(UTF16)] uint16 *password,
+		[in,unique,size_is(password_size)] uint8 *password,
+		[in] uint32 password_size,
 		[in,unique] [string,charset(UTF16)] uint16 *display_name
 	);
 

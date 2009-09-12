@@ -886,12 +886,7 @@ static bool api_svcctl_ChangeServiceConfigW(pipes_struct *p)
 	}
 
 	ZERO_STRUCT(r->out);
-	r->out.tag_id = talloc_zero(r, uint32_t);
-	if (r->out.tag_id == NULL) {
-		talloc_free(r);
-		return false;
-	}
-
+	r->out.tag_id = r->in.tag_id;
 	r->out.result = _svcctl_ChangeServiceConfigW(p, r);
 
 	if (p->rng_fault_state) {
@@ -3719,11 +3714,7 @@ NTSTATUS rpc_svcctl_dispatch(struct rpc_pipe_client *cli, TALLOC_CTX *mem_ctx, c
 		case NDR_SVCCTL_CHANGESERVICECONFIGW: {
 			struct svcctl_ChangeServiceConfigW *r = (struct svcctl_ChangeServiceConfigW *)_r;
 			ZERO_STRUCT(r->out);
-			r->out.tag_id = talloc_zero(mem_ctx, uint32_t);
-			if (r->out.tag_id == NULL) {
-			return NT_STATUS_NO_MEMORY;
-			}
-
+			r->out.tag_id = r->in.tag_id;
 			r->out.result = _svcctl_ChangeServiceConfigW(cli->pipes_struct, r);
 			return NT_STATUS_OK;
 		}
