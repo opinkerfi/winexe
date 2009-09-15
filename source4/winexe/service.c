@@ -1,9 +1,8 @@
 /*
-   Copyright (C) Andrzej Hajda 2006
+   Copyright (C) Andrzej Hajda 2009
    Contact: andrzej.hajda@wp.pl
-   License: GNU General Public License version 2
+   License: GNU General Public License version 3
 */
-
 
 #include "includes.h"
 #include "param/param.h"
