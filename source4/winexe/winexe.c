@@ -22,7 +22,7 @@
 #include <sys/termios.h>
 #include <signal.h>
 
-struct program_args {
+struct program_options {
 	char *hostname;
 	char *cmd;
 	struct cli_credentials *credentials;
@@ -37,7 +37,7 @@ struct program_args {
 
 int abort_requested = 0;
 
-void parse_args(int argc, char *argv[], struct program_args *pmyargs)
+void parse_args(int argc, char *argv[], struct program_options *options)
 {
 	poptContext pc;
 	int opt, i;
@@ -51,17 +51,17 @@ void parse_args(int argc, char *argv[], struct program_args *pmyargs)
 		POPT_COMMON_CONNECTION
 		POPT_COMMON_CREDENTIALS
 		POPT_COMMON_VERSION
-		{"uninstall", 0, POPT_ARG_NONE, &pmyargs->uninstall, 0,
+		{"uninstall", 0, POPT_ARG_NONE, &options->uninstall, 0,
 		 "Uninstall winexe service after remote execution", NULL},
-		{"reinstall", 0, POPT_ARG_NONE, &pmyargs->reinstall, 0,
+		{"reinstall", 0, POPT_ARG_NONE, &options->reinstall, 0,
 		 "Reinstall winexe service before remote execution", NULL},
-		{"system", 0, POPT_ARG_NONE, &pmyargs->system, 0,
+		{"system", 0, POPT_ARG_NONE, &options->system, 0,
 		 "Use SYSTEM account" , NULL},
-		{"runas", 0, POPT_ARG_STRING, &pmyargs->runas, 0,
+		{"runas", 0, POPT_ARG_STRING, &options->runas, 0,
 		 "Run as user (BEWARE: password is sent in cleartext over net)" , "[DOMAIN\\]USERNAME%PASSWORD"},
-		{"interactive", 0, POPT_ARG_INT, &pmyargs->interactive, 0,
+		{"interactive", 0, POPT_ARG_INT, &options->interactive, 0,
 		 "Desktop interaction: 0 - disallow, 1 - allow. If you allow use also --system switch (Win requirement). Vista do not support this option.", "0|1"},
-		{"ostype", 0, POPT_ARG_INT, &pmyargs->ostype, 0,
+		{"ostype", 0, POPT_ARG_INT, &options->ostype, 0,
 		 "OS type: 0 - 32bit, 1 - 64bit, 2 - winexe will decide. Determines which version (32bit/64bit) of service will be installed.", "0|1|2"},
 		POPT_TABLEEND
 	};
@@ -94,15 +94,15 @@ void parse_args(int argc, char *argv[], struct program_args *pmyargs)
 		exit(1);
 	}
 
-	pmyargs->hostname = argv_new[0] + 2;
-	pmyargs->cmd = argv_new[1];
+	options->hostname = argv_new[0] + 2;
+	options->cmd = argv_new[1];
 }
 
 enum {STATE_OPENING, STATE_GETTING_VERSION, STATE_RUNNING, STATE_CLOSING, STATE_CLOSING_FOR_REINSTALL };
 
 struct winexe_context {
 	int state;
-	struct program_args *args;
+	struct program_options *args;
 	struct smbcli_tree *tree;
 	struct async_context *ac_ctrl;
 	struct async_context *ac_io;
@@ -307,40 +307,40 @@ int main(int argc, char *argv[])
 	NTSTATUS status;
 	struct smbcli_state *cli;
 	struct loadparm_context *lp_ctx;
-	struct program_args myargs = {.reinstall = 0, .uninstall = 0, .system = 0, .interactive = SVC_IGNORE_INTERACTIVE, .ostype = 2 };
+	struct program_options options = {.reinstall = 0, .uninstall = 0, .system = 0, .interactive = SVC_IGNORE_INTERACTIVE, .ostype = 2 };
 
-	parse_args(argc, argv, &myargs);
+	parse_args(argc, argv, &options);
 	lp_ctx = cmdline_lp_ctx;
 	ev_ctx = s4_event_context_init(talloc_autofree_context());
 	DEBUG(1, ("winexe version %d.%02d\nThis program may be freely redistributed under the terms of the GNU GPL\n", VERSION / 100, VERSION % 100));
-	myargs.interactive &= SVC_INTERACTIVE_MASK;
-	myargs.flags = myargs.interactive;
-	if (myargs.reinstall)
-		myargs.flags |= SVC_FORCE_UPLOAD;
-	if (myargs.ostype == 1)
-		myargs.flags |= SVC_OS64BIT;
-	if (myargs.ostype == 2)
-		myargs.flags |= SVC_OSCHOOSE;
+	options.interactive &= SVC_INTERACTIVE_MASK;
+	options.flags = options.interactive;
+	if (options.reinstall)
+		options.flags |= SVC_FORCE_UPLOAD;
+	if (options.ostype == 1)
+		options.flags |= SVC_OS64BIT;
+	if (options.ostype == 2)
+		options.flags |= SVC_OSCHOOSE;
 
 	dcerpc_init(lp_ctx);
 
-	if (myargs.flags & SVC_FORCE_UPLOAD)
-		svc_uninstall(myargs.hostname, cmdline_credentials);
+	if (options.flags & SVC_FORCE_UPLOAD)
+		svc_uninstall(options.hostname, cmdline_credentials);
 
-	if (!(myargs.flags & SVC_IGNORE_INTERACTIVE)) {
-		svc_install(myargs.hostname, cmdline_credentials, myargs.flags);
+	if (!(options.flags & SVC_IGNORE_INTERACTIVE)) {
+		svc_install(options.hostname, cmdline_credentials, options.flags);
 	}
 
-	struct smbcli_options options;
+	struct smbcli_options smb_options;
 	struct smbcli_session_options session_options;
 //fprintf(stderr, "%s(%d): %p %p\n", __FILE__, __LINE__, lp_ctx, lp_ctx->globals);
-	lp_smbcli_options(lp_ctx, &options);
+	lp_smbcli_options(lp_ctx, &smb_options);
 	lp_smbcli_session_options(lp_ctx, &session_options);
 
 	status =
-	    smbcli_full_connection(NULL, &cli, myargs.hostname, lp_smb_ports(lp_ctx), "IPC$",
+	    smbcli_full_connection(NULL, &cli, options.hostname, lp_smb_ports(lp_ctx), "IPC$",
 				   NULL, lp_socket_options(lp_ctx), cmdline_credentials, lp_resolve_context(lp_ctx), ev_ctx, 
-				   &options, &session_options, lp_iconv_convenience(lp_ctx), lp_gensec_settings(NULL, lp_ctx));
+				   &smb_options, &session_options, lp_iconv_convenience(lp_ctx), lp_gensec_settings(NULL, lp_ctx));
 	if (!NT_STATUS_IS_OK(status)) {
 		DEBUG(0,
 		      ("ERROR: Failed to open connection - %s\n",
@@ -364,7 +364,7 @@ int main(int argc, char *argv[])
 	c->ac_ctrl->cb_read = (async_cb_read) on_ctrl_pipe_read;
 	c->ac_ctrl->cb_error = (async_cb_error) on_ctrl_pipe_error;
 	c->ac_ctrl->cb_close = (async_cb_close) on_ctrl_pipe_close;
-	c->args = &myargs;
+	c->args = &options;
 	c->args->credentials = cmdline_credentials;
 	c->return_code = 99;
 	c->state = STATE_OPENING;
