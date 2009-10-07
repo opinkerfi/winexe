@@ -22,6 +22,8 @@
 #include <sys/termios.h>
 #include <signal.h>
 
+const char version_string[] = "winexe version %d.%02d\nThis program may be freely redistributed under the terms of the GNU GPLv3\n";
+
 struct program_options {
 	char *hostname;
 	char *cmd;
@@ -66,13 +68,12 @@ void parse_args(int argc, char *argv[], struct program_options *options)
 		POPT_TABLEEND
 	};
 
-	pc = poptGetContext(argv[0], argc, (const char **) argv,
-			    long_options, 0);
+	pc = poptGetContext(argv[0], argc, (const char **) argv, long_options, 0);
 
 	poptSetOtherOptionHelp(pc, "//host command");
 
 	while ((opt = poptGetNextOpt(pc)) != -1) {
-		DEBUG(0, ("winexe version %d.%02d\nThis program may be freely redistributed under the terms of the GNU GPL\n", VERSION / 100, VERSION % 100));
+		DEBUG(0, (version_string, VERSION_MAJOR, VERSION_MINOR));
 		poptPrintUsage(pc, stdout, 0);
 		exit(1);
 	}
@@ -89,7 +90,7 @@ void parse_args(int argc, char *argv[], struct program_options *options)
 
 	if (argc_new != 2 || argv_new[0][0] != '/'
 	    || argv_new[0][1] != '/') {
-		DEBUG(0, ("winexe version %d.%02d\nThis program may be freely redistributed under the terms of the GNU GPL\n", VERSION / 100, VERSION % 100));
+		DEBUG(0, (version_string, VERSION_MAJOR, VERSION_MINOR));
 		poptPrintUsage(pc, stdout, 0);
 		exit(1);
 	}
@@ -312,7 +313,7 @@ int main(int argc, char *argv[])
 	parse_args(argc, argv, &options);
 	lp_ctx = cmdline_lp_ctx;
 	ev_ctx = s4_event_context_init(talloc_autofree_context());
-	DEBUG(1, ("winexe version %d.%02d\nThis program may be freely redistributed under the terms of the GNU GPL\n", VERSION / 100, VERSION % 100));
+	DEBUG(1, (version_string, VERSION_MAJOR, VERSION_MINOR));
 	options.interactive &= SVC_INTERACTIVE_MASK;
 	options.flags = options.interactive;
 	if (options.reinstall)

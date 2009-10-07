@@ -4,8 +4,10 @@
    License: GNU General Public License version 3
 */
 
-/* ver = $(VERSION / 100) . $(VERSION % 100) */
-#define VERSION 90
+#define VERSION_MAJOR 0
+#define VERSION_MINOR 90
+
+#define VERSION (VERSION_MAJOR * 100 + VERSION_MINOR)
 
 #define SERVICE_NAME "winexesvc"
 
