@@ -28,12 +28,7 @@ struct program_options {
 	char *hostname;
 	char *cmd;
 	struct cli_credentials *credentials;
-	int reinstall;
-	int uninstall;
-	int system;
 	char *runas;
-	int interactive;
-	int ostype;
 	int flags;
 };
 
@@ -46,6 +41,11 @@ void parse_args(int argc, char *argv[], struct program_options *options)
 
 	int argc_new;
 	char **argv_new;
+	int flag_interactive = 0;
+	int flag_ostype = 2;
+	int flag_reinstall = 0;
+	int flag_uninstall = 0;
+	int flag_system = 0;
 
 	struct poptOption long_options[] = {
 		POPT_AUTOHELP
@@ -53,17 +53,17 @@ void parse_args(int argc, char *argv[], struct program_options *options)
 		POPT_COMMON_CONNECTION
 		POPT_COMMON_CREDENTIALS
 		POPT_COMMON_VERSION
-		{"uninstall", 0, POPT_ARG_NONE, &options->uninstall, 0,
+		{"uninstall", 0, POPT_ARG_NONE, &flag_uninstall, 0,
 		 "Uninstall winexe service after remote execution", NULL},
-		{"reinstall", 0, POPT_ARG_NONE, &options->reinstall, 0,
+		{"reinstall", 0, POPT_ARG_NONE, &flag_reinstall, 0,
 		 "Reinstall winexe service before remote execution", NULL},
-		{"system", 0, POPT_ARG_NONE, &options->system, 0,
+		{"system", 0, POPT_ARG_NONE, &flag_system, 0,
 		 "Use SYSTEM account" , NULL},
 		{"runas", 0, POPT_ARG_STRING, &options->runas, 0,
 		 "Run as user (BEWARE: password is sent in cleartext over net)" , "[DOMAIN\\]USERNAME%PASSWORD"},
-		{"interactive", 0, POPT_ARG_INT, &options->interactive, 0,
+		{"interactive", 0, POPT_ARG_INT, &flag_interactive, 0,
 		 "Desktop interaction: 0 - disallow, 1 - allow. If you allow use also --system switch (Win requirement). Vista do not support this option.", "0|1"},
-		{"ostype", 0, POPT_ARG_INT, &options->ostype, 0,
+		{"ostype", 0, POPT_ARG_INT, &flag_ostype, 0,
 		 "OS type: 0 - 32bit, 1 - 64bit, 2 - winexe will decide. Determines which version (32bit/64bit) of service will be installed.", "0|1|2"},
 		POPT_TABLEEND
 	};
@@ -97,6 +97,18 @@ void parse_args(int argc, char *argv[], struct program_options *options)
 
 	options->hostname = argv_new[0] + 2;
 	options->cmd = argv_new[1];
+	
+	options->flags = flag_interactive;
+	if (flag_reinstall)
+		options->flags |= SVC_FORCE_UPLOAD;
+	if (flag_ostype == 1)
+		options->flags |= SVC_OS64BIT;
+	if (flag_ostype == 2)
+		options->flags |= SVC_OSCHOOSE;
+	if (flag_uninstall)
+		options->flags |= SVC_UNINSTALL;
+	if (flag_system)
+		options->flags |= SVC_SYSTEM;
 }
 
 enum {STATE_OPENING, STATE_GETTING_VERSION, STATE_RUNNING, STATE_CLOSING, STATE_CLOSING_FOR_REINSTALL };
@@ -222,7 +234,7 @@ void on_ctrl_pipe_read(struct winexe_context *c, const char *data, int len)
 			if (c->args->runas)
 				str = talloc_asprintf(c, "set runas %s\nrun %s\n", c->args->runas, c->args->cmd);
 			else
-				str = talloc_asprintf(c, "%srun %s\n", c->args->system ? "set system 1\n" : "" , c->args->cmd);
+				str = talloc_asprintf(c, "%srun %s\n", (c->args->flags & SVC_SYSTEM) ? "set system 1\n" : "" , c->args->cmd);
 			DEBUG(1, ("CTRL: Sending command: %s", str));
 			async_write(c->ac_ctrl, str, strlen(str));
 			talloc_free(str);
@@ -296,7 +308,7 @@ void on_err_pipe_error(struct winexe_context *c, int func, NTSTATUS status)
 
 void exit_program(struct winexe_context *c)
 {
-	if (c->args->uninstall)
+	if (c->args->flags & SVC_UNINSTALL)
 		svc_uninstall(c->args->hostname, c->args->credentials);
 	exit(c->return_code);
 }
@@ -307,19 +319,12 @@ int main(int argc, char *argv[])
 {
 	NTSTATUS status;
 	struct smbcli_state *cli;
-	struct program_options options = {.reinstall = 0, .uninstall = 0, .system = 0, .interactive = SVC_IGNORE_INTERACTIVE, .ostype = 2 };
+	struct program_options options;
 
+	memset(&options, 0, sizeof(options));
 	parse_args(argc, argv, &options);
 	ev_ctx = s4_event_context_init(talloc_autofree_context());
 	DEBUG(1, (version_string, VERSION_MAJOR, VERSION_MINOR));
-	options.interactive &= SVC_INTERACTIVE_MASK;
-	options.flags = options.interactive;
-	if (options.reinstall)
-		options.flags |= SVC_FORCE_UPLOAD;
-	if (options.ostype == 1)
-		options.flags |= SVC_OS64BIT;
-	if (options.ostype == 2)
-		options.flags |= SVC_OSCHOOSE;
 
 	dcerpc_init(cmdline_lp_ctx);
 

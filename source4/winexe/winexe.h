@@ -4,13 +4,16 @@
    License: GNU General Public License version 3
 */
 
-/* service.c */
 #define SVC_INTERACTIVE 1
 #define SVC_IGNORE_INTERACTIVE 2
 #define SVC_INTERACTIVE_MASK 3
 #define SVC_FORCE_UPLOAD 4
 #define SVC_OS64BIT 8
 #define SVC_OSCHOOSE 16
+#define SVC_UNINSTALL 32
+#define SVC_SYSTEM 64
+
+/* service.c */
 NTSTATUS svc_install(const char *hostname,
 		     struct cli_credentials *credentials, int flags);
 NTSTATUS svc_uninstall(const char *hostname,
