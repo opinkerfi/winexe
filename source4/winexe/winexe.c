@@ -307,11 +307,9 @@ int main(int argc, char *argv[])
 {
 	NTSTATUS status;
 	struct smbcli_state *cli;
-	struct loadparm_context *lp_ctx;
 	struct program_options options = {.reinstall = 0, .uninstall = 0, .system = 0, .interactive = SVC_IGNORE_INTERACTIVE, .ostype = 2 };
 
 	parse_args(argc, argv, &options);
-	lp_ctx = cmdline_lp_ctx;
 	ev_ctx = s4_event_context_init(talloc_autofree_context());
 	DEBUG(1, (version_string, VERSION_MAJOR, VERSION_MINOR));
 	options.interactive &= SVC_INTERACTIVE_MASK;
@@ -323,7 +321,7 @@ int main(int argc, char *argv[])
 	if (options.ostype == 2)
 		options.flags |= SVC_OSCHOOSE;
 
-	dcerpc_init(lp_ctx);
+	dcerpc_init(cmdline_lp_ctx);
 
 	if (options.flags & SVC_FORCE_UPLOAD)
 		svc_uninstall(options.hostname, cmdline_credentials);
@@ -334,14 +332,14 @@ int main(int argc, char *argv[])
 
 	struct smbcli_options smb_options;
 	struct smbcli_session_options session_options;
-//fprintf(stderr, "%s(%d): %p %p\n", __FILE__, __LINE__, lp_ctx, lp_ctx->globals);
-	lp_smbcli_options(lp_ctx, &smb_options);
-	lp_smbcli_session_options(lp_ctx, &session_options);
+
+	lp_smbcli_options(cmdline_lp_ctx, &smb_options);
+	lp_smbcli_session_options(cmdline_lp_ctx, &session_options);
 
 	status =
-	    smbcli_full_connection(NULL, &cli, options.hostname, lp_smb_ports(lp_ctx), "IPC$",
-				   NULL, lp_socket_options(lp_ctx), cmdline_credentials, lp_resolve_context(lp_ctx), ev_ctx, 
-				   &smb_options, &session_options, lp_iconv_convenience(lp_ctx), lp_gensec_settings(NULL, lp_ctx));
+	    smbcli_full_connection(NULL, &cli, options.hostname, lp_smb_ports(cmdline_lp_ctx), "IPC$",
+				   NULL, lp_socket_options(cmdline_lp_ctx), cmdline_credentials, lp_resolve_context(cmdline_lp_ctx), ev_ctx, 
+				   &smb_options, &session_options, lp_iconv_convenience(cmdline_lp_ctx), lp_gensec_settings(NULL, cmdline_lp_ctx));
 	if (!NT_STATUS_IS_OK(status)) {
 		DEBUG(0,
 		      ("ERROR: Failed to open connection - %s\n",
