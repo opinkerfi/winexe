@@ -41,6 +41,8 @@ void parse_args(int argc, char *argv[], struct program_options *options)
 
 	int argc_new;
 	char **argv_new;
+	
+	memset(options, 0, sizeof(struct program_options));
 	int flag_interactive = 0;
 	int flag_ostype = 2;
 	int flag_reinstall = 0;
@@ -321,10 +323,9 @@ int main(int argc, char *argv[])
 	struct smbcli_state *cli;
 	struct program_options options;
 
-	memset(&options, 0, sizeof(options));
 	parse_args(argc, argv, &options);
-	ev_ctx = s4_event_context_init(talloc_autofree_context());
 	DEBUG(1, (version_string, VERSION_MAJOR, VERSION_MINOR));
+	ev_ctx = s4_event_context_init(talloc_autofree_context());
 
 	dcerpc_init(cmdline_lp_ctx);
 
