@@ -9,6 +9,8 @@
 #include "libcli/raw/raw_proto.h"
 #include "winexe.h"
 
+#define USE_OPENX_CALL
+
 void list_enqueue(struct list *l, const void *data, int size)
 {
 	struct list_item *li =
@@ -89,7 +91,7 @@ static void async_open_recv(struct smbcli_request *req)
 	status = smb_raw_open_recv(req, c, c->io_open);
 	c->rreq = NULL;
 	if (NT_STATUS_IS_OK(status))
-#if 1
+#ifdef USE_OPENX_CALL
 		c->fd = c->io_open->openx.out.file.fnum;
 #else
 		c->fd = c->io_open->ntcreatex.out.file.fnum;
@@ -165,7 +167,7 @@ int async_open(struct async_context *c, const char *fn, int open_mode)
 	c->io_open = talloc_zero(c, union smb_open);
 	if (!c->io_open)
 		goto failed;
-#if 1
+#ifdef USE_OPENX_CALL
 	c->io_open->openx.level = RAW_OPEN_OPENX;
 	c->io_open->openx.in.flags = 0;
 	c->io_open->openx.in.open_mode = open_mode;
