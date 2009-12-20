@@ -2208,7 +2208,7 @@ static enum ndr_err_code ndr_push_svcctl_ChangeServiceConfigW(struct ndr_push *n
 		}
 		NDR_CHECK(ndr_push_unique_ptr(ndr, r->in.dependencies));
 		if (r->in.dependencies) {
-			NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, r->in.dependencies_size));
+			NDR_CHECK(ndr_push_uint3264(ndr, NDR_SCALARS, r->in.dependencies_size));
 			NDR_CHECK(ndr_push_array_uint8(ndr, NDR_SCALARS, r->in.dependencies, r->in.dependencies_size));
 		}
 		NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, r->in.dependencies_size));
@@ -2221,7 +2221,7 @@ static enum ndr_err_code ndr_push_svcctl_ChangeServiceConfigW(struct ndr_push *n
 		}
 		NDR_CHECK(ndr_push_unique_ptr(ndr, r->in.password));
 		if (r->in.password) {
-			NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, r->in.password_size));
+			NDR_CHECK(ndr_push_uint3264(ndr, NDR_SCALARS, r->in.password_size));
 			NDR_CHECK(ndr_push_array_uint8(ndr, NDR_SCALARS, r->in.password, r->in.password_size));
 		}
 		NDR_CHECK(ndr_push_uint32(ndr, NDR_SCALARS, r->in.password_size));
