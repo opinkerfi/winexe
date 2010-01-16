@@ -271,6 +271,7 @@ NTSTATUS svc_install(const char *hostname,
 			(flags & SVC_INTERACTIVE ? SERVICE_INTERACTIVE_PROCESS : 0),
 			"winexesvc.exe", &svc_handle);
 		NT_ERR(status, 1, "CreateService failed");
+		need_start = 1;
 	} else if (NT_STATUS_IS_OK(status) && !(flags & SVC_IGNORE_INTERACTIVE)) {
 		struct SERVICE_STATUS s;
 		int what, want;
