@@ -14,6 +14,7 @@
 #include "param/param.h"
 #include "libcli/resolve/resolve.h"
 #include "libcli/smb_composite/smb_composite.h"
+#include "libcli/composite/composite.h"
 
 #include "winexe.h"
 #include "winexesvc/shared.h"
@@ -318,9 +319,7 @@ void exit_program(struct winexe_context *c)
 
 struct tevent_context *ev_ctx;
 
-
 struct composite_context *smbcli_tree_full_connection_send(TALLOC_CTX *parent_ctx,
-				     struct smbcli_tree **ret_tree, 
 				     const char *dest_host, const char **dest_ports,
 				     const char *service, const char *service_type,
 					 const char *socket_options,
@@ -336,7 +335,6 @@ struct composite_context *smbcli_tree_full_connection_send(TALLOC_CTX *parent_ct
 	NTSTATUS status;
 	io = talloc_zero(parent_ctx, struct smb_composite_connect);
 	if (!io) {
-		//return NT_STATUS_NO_MEMORY;
 		return NULL;
 	}
 
@@ -355,6 +353,24 @@ struct composite_context *smbcli_tree_full_connection_send(TALLOC_CTX *parent_ct
 	io->in.session_options = *session_options;
 	io->in.iconv_convenience = iconv_convenience;
 	return smb_composite_connect_send(io, io, resolve_ctx, ev);
+}
+
+NTSTATUS smbcli_tree_full_connection_recv(struct composite_context *c, TALLOC_CTX *parent_ctx, struct smbcli_tree **ret_tree)
+{
+	struct smb_composite_connect *io;
+	NTSTATUS status;
+	
+	status = smb_composite_connect_recv(c, parent_ctx);
+	if (!NT_STATUS_IS_OK(status))
+		return status;
+
+//	io = talloc_get_type(c->private_data, struct smb_composite_connect);
+	io = c->private_data;
+	
+	*ret_tree = io->out.tree;
+	talloc_steal(parent_ctx, *ret_tree);
+	
+	return status;
 }
 
 int main(int argc, char *argv[])
@@ -382,12 +398,21 @@ int main(int argc, char *argv[])
 	lp_smbcli_options(cmdline_lp_ctx, &smb_options);
 	lp_smbcli_session_options(cmdline_lp_ctx, &session_options);
 
+#if 0
 	struct composite_context *cc;
 	cc =
-	    smbcli_tree_full_connection_send(NULL, &cli_tree, options.hostname, lp_smb_ports(cmdline_lp_ctx), "IPC$",
+	    smbcli_tree_full_connection_send(NULL, options.hostname, lp_smb_ports(cmdline_lp_ctx), "IPC$",
 				   NULL, lp_socket_options(cmdline_lp_ctx), cmdline_credentials, lp_resolve_context(cmdline_lp_ctx), ev_ctx, 
 				   &smb_options, &session_options, lp_iconv_convenience(cmdline_lp_ctx), lp_gensec_settings(NULL, cmdline_lp_ctx));
-	status = smb_composite_connect_recv(cc, NULL);
+	status = smbcli_tree_full_connection_recv(cc, NULL, &cli_tree);
+#else
+	struct smbcli_state *cli_state;
+	status = smbcli_full_connection(NULL, &cli_state, options.hostname, lp_smb_ports(cmdline_lp_ctx), "IPC$",
+	                            NULL, lp_socket_options(cmdline_lp_ctx), cmdline_credentials, lp_resolve_context(cmdline_lp_ctx), ev_ctx,
+	            		    &smb_options, &session_options, lp_iconv_convenience(cmdline_lp_ctx), lp_gensec_settings(NULL, cmdline_lp_ctx));
+	if (cli_state)
+		cli_tree = cli_state->tree;
+#endif
 	if (!NT_STATUS_IS_OK(status)) {
 		DEBUG(0,
 		      ("ERROR: Failed to open connection - %s\n",
@@ -396,7 +421,7 @@ int main(int argc, char *argv[])
 	}
 
 	struct winexe_context *c =
-	    talloc_zero(cli_tree, struct winexe_context);
+	    talloc_zero(NULL, struct winexe_context);
 	if (c == NULL) {
 		DEBUG(0,
 		      ("ERROR: Failed to allocate struct winexe_context\n"));
@@ -404,7 +429,7 @@ int main(int argc, char *argv[])
 	}
 
 	c->tree = cli_tree;
-	c->ac_ctrl = talloc_zero(cli_tree, struct async_context);
+	c->ac_ctrl = talloc_zero(NULL, struct async_context);
 	c->ac_ctrl->tree = cli_tree;
 	c->ac_ctrl->cb_ctx = c;
 	c->ac_ctrl->cb_open = (async_cb_open) on_ctrl_pipe_open;
