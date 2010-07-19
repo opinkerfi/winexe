@@ -5,7 +5,7 @@
 */
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 90
+#define VERSION_MINOR 91
 
 #define VERSION (VERSION_MAJOR * 100 + VERSION_MINOR)
 
