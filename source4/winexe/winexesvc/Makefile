@@ -1,8 +1,8 @@
 CFLAGS=-mno-cygwin -Os
 LDFLAGS=-mno-cygwin -s -Os
 
-CC_WIN32 := i386-mingw32-gcc
-CC_WIN64 := x86_64-mingw32-gcc
+CC_WIN32 := $(shell bash -c 'which {i386,i586}-{mingw32,mingw32msvc}-gcc')
+CC_WIN64 := $(shell bash -c 'which {x86_64,amd64}-{mingw32,mingw32msvc}-gcc')
 
 all: winexesvc32_exe.c winexesvc64_exe.c
 
