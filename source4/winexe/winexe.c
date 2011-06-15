@@ -141,7 +141,8 @@ struct winexe_context {
 	struct program_options *args;
 	struct smbcli_tree *tree;
 	struct async_context *ac_ctrl;
-	struct async_context *ac_io;
+	struct async_context *ac_in;
+	struct async_context *ac_out;
 	struct async_context *ac_err;
 	int return_code;
 };
@@ -177,10 +178,13 @@ void on_ctrl_pipe_error(struct winexe_context *c, int func, NTSTATUS status)
 		exit_program(c);
 }
 
-void on_io_pipe_open(struct winexe_context *c);
-void on_io_pipe_read(struct winexe_context *c, const char *data, int len);
-void on_io_pipe_error(struct winexe_context *c, int func, NTSTATUS status);
+void on_in_pipe_open(struct winexe_context *c);
+
+void on_out_pipe_read(struct winexe_context *c, const char *data, int len);
 void on_err_pipe_read(struct winexe_context *c, const char *data, int len);
+
+void on_in_pipe_error(struct winexe_context *c, int func, NTSTATUS status);
+void on_out_pipe_error(struct winexe_context *c, int func, NTSTATUS status);
 void on_err_pipe_error(struct winexe_context *c, int func, NTSTATUS status);
 
 const char *cmd_check(const char *data, const char *cmd, int len)
@@ -229,14 +233,24 @@ void on_ctrl_pipe_read(struct winexe_context *c, const char *data, int len)
 	if ((p = cmd_check(data, CMD_STD_IO_ERR, len))) {
 		DEBUG(1, ("CTRL: Recieved command: %.*s", len, data));
 		unsigned int npipe = strtoul(p, 0, 16);
-		c->ac_io = talloc_zero(c, struct async_context);
-		c->ac_io->tree = c->tree;
-		c->ac_io->cb_ctx = c;
-		c->ac_io->cb_open = (async_cb_open) on_io_pipe_open;
-		c->ac_io->cb_read = (async_cb_read) on_io_pipe_read;
-		c->ac_io->cb_error = (async_cb_error) on_io_pipe_error;
-		char *fn = talloc_asprintf(c->ac_io, "\\pipe\\" PIPE_NAME_IO, npipe);
-		async_open(c->ac_io, fn, OPENX_MODE_ACCESS_RDWR);
+		char *fn;
+		// Open in
+		c->ac_in = talloc_zero(c, struct async_context);
+		c->ac_in->tree = c->tree;
+		c->ac_in->cb_ctx = c;
+		c->ac_in->cb_open = (async_cb_open) on_in_pipe_open;
+		c->ac_in->cb_error = (async_cb_error) on_in_pipe_error;
+		fn = talloc_asprintf(c->ac_in, "\\pipe\\" PIPE_NAME_IN, npipe);
+		async_open(c->ac_in, fn, OPENX_MODE_ACCESS_RDWR);
+		// Open out
+		c->ac_out = talloc_zero(c, struct async_context);
+		c->ac_out->tree = c->tree;
+		c->ac_out->cb_ctx = c;
+		c->ac_out->cb_read = (async_cb_read) on_out_pipe_read;
+		c->ac_out->cb_error = (async_cb_error) on_out_pipe_error;
+		fn = talloc_asprintf(c->ac_out, "\\pipe\\" PIPE_NAME_OUT, npipe);
+		async_open(c->ac_out, fn, OPENX_MODE_ACCESS_RDWR);
+		// Open err
 		c->ac_err = talloc_zero(c, struct async_context);
 		c->ac_err->tree = c->tree;
 		c->ac_err->cb_ctx = c;
@@ -293,13 +307,13 @@ static void on_stdin_read_event(struct event_context *event_ctx,
 	char buf[256];
 	int len;
 	if ((len = read(0, &buf, sizeof(buf))) > 0) {
-		async_write(c->ac_io, buf, len);
+		async_write(c->ac_in, buf, len);
 	} else {
 		usleep(10);
 	}
 }
 
-void on_io_pipe_open(struct winexe_context *c)
+void on_in_pipe_open(struct winexe_context *c)
 {
 	event_add_fd(c->tree->session->transport->socket->event.ctx,
 		     c->tree, 0, EVENT_FD_READ,
@@ -311,14 +325,19 @@ void on_io_pipe_open(struct winexe_context *c)
 	setbuf(stdin, NULL);
 }
 
-void on_io_pipe_read(struct winexe_context *c, const char *data, int len)
+void on_out_pipe_read(struct winexe_context *c, const char *data, int len)
 {
 	write(1, data, len);
 }
 
-void on_io_pipe_error(struct winexe_context *c, int func, NTSTATUS status)
+void on_in_pipe_error(struct winexe_context *c, int func, NTSTATUS status)
 {
-	async_close(c->ac_io);
+	async_close(c->ac_in);
+}
+
+void on_out_pipe_error(struct winexe_context *c, int func, NTSTATUS status)
+{
+	async_close(c->ac_out);
 }
 
 void on_err_pipe_read(struct winexe_context *c, const char *data, int len)

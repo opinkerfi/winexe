@@ -138,7 +138,8 @@ int hprintf(OV_HANDLE *pipe, const char *fmt, ...)
 typedef struct {
 	OV_HANDLE *pipe;
 	const char *cmd;
-	HANDLE pio;
+	HANDLE pin;
+	HANDLE pout;
 	HANDLE perr;
 	HANDLE token;
 	int implevel;
@@ -306,8 +307,9 @@ int cmd_run(connection_context *c)
 		return 0;
 
 	pipe_nr = (GetCurrentProcessId() << 16) + (DWORD) c->conn_number;
-	sprintf(buf, "\\\\.\\pipe\\" PIPE_NAME_IO, pipe_nr);
-	c->pio = CreateNamedPipe(buf,
+
+	sprintf(buf, "\\\\.\\pipe\\" PIPE_NAME_IN, pipe_nr);
+	c->pin = CreateNamedPipe(buf,
 			      PIPE_ACCESS_DUPLEX,
 			      PIPE_WAIT,
 			      1,
@@ -315,9 +317,23 @@ int cmd_run(connection_context *c)
 			      BUFSIZE,
 			      NMPWAIT_USE_DEFAULT_WAIT,
 			      &sa);
-	if (c->pio == INVALID_HANDLE_VALUE) {
-		hprintf(c->pipe, "error Cannot create io pipe(%s), error 0x%08X\n", buf, GetLastError());
+	if (c->pin == INVALID_HANDLE_VALUE) {
+		hprintf(c->pipe, "error Cannot create in pipe(%s), error 0x%08X\n", buf, GetLastError());
 		goto finishCloseToken;
+	}
+
+	sprintf(buf, "\\\\.\\pipe\\" PIPE_NAME_OUT, pipe_nr);
+	c->pout = CreateNamedPipe(buf,
+			      PIPE_ACCESS_DUPLEX,
+			      PIPE_WAIT,
+			      1,
+			      BUFSIZE,
+			      BUFSIZE,
+			      NMPWAIT_USE_DEFAULT_WAIT,
+			      &sa);
+	if (c->pout == INVALID_HANDLE_VALUE) {
+		hprintf(c->pipe, "error Cannot create out pipe(%s), error 0x%08X\n", buf, GetLastError());
+		goto finishClosePin;
 	}
 
 	sprintf(buf, "\\\\.\\pipe\\" PIPE_NAME_ERR, pipe_nr);
@@ -330,33 +346,40 @@ int cmd_run(connection_context *c)
 			       NMPWAIT_USE_DEFAULT_WAIT,
 			       &sa);
 	if (c->perr == INVALID_HANDLE_VALUE) {
-		hprintf(c->pipe, "error Cannot create err pipe\n");
-		goto finishClosePio;
+		hprintf(c->pipe, "error Cannot create err pipe(%s), error 0x%08x\n", buf, GetLastError());
+		goto finishClosePout;
 	}
+
 	/* Send handle to client (it will use it to connect pipes) */
 	hprintf(c->pipe, CMD_STD_IO_ERR " %08X\n", pipe_nr);
 
-	wres = ConnectNamedPipe(c->pio, NULL);
+	wres = ConnectNamedPipe(c->pin, NULL);
 	if (!wres)
 		wres = (GetLastError() == ERROR_PIPE_CONNECTED);
-
 	if (!wres) {
-		hprintf(c->pipe, "error ConnectNamedPipe(pio)\n");
+		hprintf(c->pipe, "error ConnectNamedPipe(pin)\n");
 		goto finishClosePerr;
+	}
+
+	wres = ConnectNamedPipe(c->pout, NULL);
+	if (!wres)
+		wres = (GetLastError() == ERROR_PIPE_CONNECTED);
+	if (!wres) {
+		hprintf(c->pipe, "error ConnectNamedPipe(pout)\n");
+		goto finishDisconnectPin;
 	}
 
 	wres = ConnectNamedPipe(c->perr, NULL);
 	if (!wres)
 		wres = (GetLastError() == ERROR_PIPE_CONNECTED);
-
 	if (!wres) {
 		hprintf(c->pipe, "error ConnectNamedPipe(perr)\n");
-		goto finishDisconnectPio;
+		goto finishDisconnectPout;
 	}
 
-	SetHandleInformation(c->pio, HANDLE_FLAG_INHERIT, 1);
+	SetHandleInformation(c->pin, HANDLE_FLAG_INHERIT, 1);
+	SetHandleInformation(c->pout, HANDLE_FLAG_INHERIT, 1);
 	SetHandleInformation(c->perr, HANDLE_FLAG_INHERIT, 1);
-
 
 	SECURITY_ATTRIBUTES sattr;
 	sattr.nLength = sizeof(SECURITY_ATTRIBUTES);
@@ -369,8 +392,8 @@ int cmd_run(connection_context *c)
 	STARTUPINFO si;
 	ZeroMemory(&si, sizeof(STARTUPINFO));
 	si.cb = sizeof(STARTUPINFO);
-	si.hStdInput = c->pio;
-	si.hStdOutput = c->pio;
+	si.hStdInput = c->pin;
+	si.hStdOutput = c->pout;
 	si.hStdError = c->perr;
 	si.dwFlags |= STARTF_USESTDHANDLES;
 
@@ -401,7 +424,7 @@ int cmd_run(connection_context *c)
 			GetExitCodeProcess(pi.hProcess, &ec);
 		else
 			TerminateProcess(pi.hProcess, ec = 0x1234);
-		FlushFileBuffers(c->pio);
+		FlushFileBuffers(c->pout);
 		FlushFileBuffers(c->perr);
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
@@ -411,12 +434,16 @@ int cmd_run(connection_context *c)
 	}
 
 	DisconnectNamedPipe(c->perr);
-finishDisconnectPio:
-	DisconnectNamedPipe(c->pio);
+finishDisconnectPout:
+	DisconnectNamedPipe(c->pout);
+finishDisconnectPin:
+	DisconnectNamedPipe(c->pin);
 finishClosePerr:
 	CloseHandle(c->perr);
-finishClosePio:
-	CloseHandle(c->pio);
+finishClosePout:
+	CloseHandle(c->pout);
+finishClosePin:
+	CloseHandle(c->pin);
 finishCloseToken:
 	CloseHandle(c->token);
 finish:

@@ -4,15 +4,16 @@
    License: GNU General Public License version 3
 */
 
-#define VERSION_MAJOR 0
-#define VERSION_MINOR 91
+#define VERSION_MAJOR 1
+#define VERSION_MINOR 0
 
 #define VERSION (VERSION_MAJOR * 100 + VERSION_MINOR)
 
 #define SERVICE_NAME "winexesvc"
 
 #define PIPE_NAME "ahexec"
-#define PIPE_NAME_IO "ahexec_stdio%08X"
+#define PIPE_NAME_IN "ahexec_stdin%08X"
+#define PIPE_NAME_OUT "ahexec_stdout%08X"
 #define PIPE_NAME_ERR "ahexec_stderr%08X"
 
 #define CMD_STD_IO_ERR "std_io_err"
