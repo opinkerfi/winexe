@@ -15,6 +15,7 @@
 #include "libcli/resolve/resolve.h"
 #include "libcli/smb_composite/smb_composite.h"
 #include "libcli/composite/composite.h"
+#include "auth/credentials/credentials.h"
 
 #include "winexe.h"
 #include "winexesvc/shared.h"
@@ -31,6 +32,7 @@ struct program_options {
 	char *cmd;
 	struct cli_credentials *credentials;
 	char *runas;
+	char *runas_file;
 	int flags;
 };
 
@@ -65,6 +67,8 @@ void parse_args(int argc, char *argv[], struct program_options *options)
 		 "Use SYSTEM account" , NULL},
 		{"runas", 0, POPT_ARG_STRING, &options->runas, 0,
 		 "Run as user (BEWARE: password is sent in cleartext over net)" , "[DOMAIN\\]USERNAME%PASSWORD"},
+		{"runas-file", 0, POPT_ARG_STRING, &options->runas_file, 0,
+		 "Run as user options defined in a file", "FILE"},
 		{"interactive", 0, POPT_ARG_INT, &flag_interactive, 0,
 		 "Desktop interaction: 0 - disallow, 1 - allow. If you allow use also --system switch (Win requirement). Vista do not support this option.", "0|1"},
 		{"ostype", 0, POPT_ARG_INT, &flag_ostype, 0,
@@ -97,6 +101,21 @@ void parse_args(int argc, char *argv[], struct program_options *options)
 		DEBUG(0, (version_string, VERSION_MAJOR, VERSION_MINOR));
 		poptPrintUsage(pc, stdout, 0);
 		exit(1);
+	}
+
+	if (options->runas == NULL && options->runas_file != NULL) {
+		struct cli_credentials* cred = cli_credentials_init(talloc_autofree_context());
+		cli_credentials_parse_file(cred, options->runas_file, CRED_SPECIFIED);
+		if (cred->username != NULL && cred->password != NULL) {
+			char buffer[1024];
+			if (cred->domain != NULL) {
+				snprintf(buffer, sizeof(buffer), "%s\\%s%%%s", cred->domain, cred->username, cred->password);
+			} else {
+				snprintf(buffer, sizeof(buffer), "%s%%%s", cred->username, cred->password);
+			}
+			buffer[sizeof(buffer)-1] = '\0';
+			options->runas = strdup(buffer);
+		}
 	}
 
 	options->hostname = argv_new[0] + 2;
@@ -275,6 +294,8 @@ static void on_stdin_read_event(struct event_context *event_ctx,
 	int len;
 	if ((len = read(0, &buf, sizeof(buf))) > 0) {
 		async_write(c->ac_io, buf, len);
+	} else {
+		usleep(10);
 	}
 }
 
