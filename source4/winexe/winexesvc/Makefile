@@ -28,4 +28,4 @@ bin2c.exe: bin2c.c
 	gcc -s -o $@ $^
 
 clean:
-	-@rm *.exe *.o *_exe.c
+	-@rm -f *.exe *.o *_exe.c
