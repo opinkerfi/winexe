@@ -44,3 +44,6 @@ rm -rf %{buildroot}
 %attr(755,root,root) /usr/bin/winexe
 
 %changelog
+* Fri Aug 03 2012 Pall Sigurdsson <palli@opensource.is> 1.00-2.1
+- new package built with tito
+
