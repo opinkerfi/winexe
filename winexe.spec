@@ -7,7 +7,7 @@ Release: 2.1
 License: GPL3
 Group: Administration/Network
 Source: %{name}-%{version}.tar.gz
-BuildRequires: python-devel
+BuildRequires: python-devel autoconf
 %if 0%{?suse_version}
 BuildRequires: util-linux
 %if 0%{?suse_version} == 1110 
