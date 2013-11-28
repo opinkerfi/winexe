@@ -409,3 +409,7 @@ docs-xml/Samba3-HOWTO/images/pdftoepsonusb.png
 docs-xml/Samba3-HOWTO/images/pdftosocket.png
 docs-xml/Samba3-HOWTO/images/trusts1.png
 source4/winexe/winexesvc/*.exe
+.*
+packaging/*/
+source/build
+source/smb_static/build
