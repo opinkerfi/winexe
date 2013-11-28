@@ -2,7 +2,7 @@
 
 Summary: winexe
 Name: winexe
-Version: 1.00
+Version: 1.01
 Release: 2.1
 License: GPL3
 Group: Administration/Network
