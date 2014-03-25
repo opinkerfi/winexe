@@ -16,6 +16,7 @@ BuildRequires: -post-build-checks -rpmlint-Factory
 %else
 BuildRequires: which
 %endif
+BuildRequires: perl
 BuildRoot: %{_tmppath}/%{name}-%{version}-build
 
 %description
